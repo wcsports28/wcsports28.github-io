@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WCS Analytics — NHL Line Zone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root{
+  --bg:#eef2f6;--panel:#ffffff;--panel2:#f5f7fa;--line:#d5dbe3;--ink:#0d1520;--mute:#5a6675;
+  --cyan:#0891b2;--green:#16a34a;--orange:#ea580c;--purple:#7c3aed;--gold:#d97706;
+  --hot:rgba(234,88,12,.12);--good:34,197,94;--bad:239,68,68;--mid:234,179,8;--heatA:.32;
+  --display:"Orbitron","Bebas Neue",Impact,sans-serif;--body:"Rajdhani","Segoe UI",Arial,sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#05070b;--panel:#0c1119;--panel2:#111827;--line:#1e2a3a;--ink:#e6edf5;--mute:#8492a6;
+  --cyan:#22d3ee;--green:#4ade80;--orange:#fb923c;--purple:#a78bfa;--gold:#fbbf24;--hot:rgba(251,146,60,.10);--heatA:.38}}
+:root[data-theme="dark"]{--bg:#05070b;--panel:#0c1119;--panel2:#111827;--line:#1e2a3a;--ink:#e6edf5;--mute:#8492a6;
+  --cyan:#22d3ee;--green:#4ade80;--orange:#fb923c;--purple:#a78bfa;--gold:#fbbf24;--hot:rgba(251,146,60,.10);--heatA:.38}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4}
+img{max-width:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 16px 48px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{max-width:1280px;margin:0 auto;padding:12px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px}
+.brand{font-family:var(--display);font-weight:800;letter-spacing:.06em;font-size:18px}
+.brand b{color:var(--cyan)} .brand span{color:var(--mute);font-weight:600;font-size:12px;margin-left:8px;letter-spacing:.1em}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:1px solid transparent;border-radius:6px;padding:6px 14px;font-weight:700;font-size:15px;color:var(--mute);cursor:pointer}
+nav button[aria-selected="true"]{color:var(--ink);border-color:var(--line);background:var(--panel);box-shadow:inset 0 -2px 0 var(--cyan)}
+.slate{margin-left:auto;font-family:var(--mono);font-size:13px;color:var(--mute)}
+h2{font-family:var(--display);font-size:15px;letter-spacing:.08em;margin:32px 0 12px;color:var(--ink)}
+.sub{color:var(--mute);font-size:15px;margin:-6px 0 14px;max-width:75ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:20px}
+.lead{padding:24px;position:relative;overflow:hidden;border-color:var(--gold)}
+.lead .k{color:var(--mute);font-weight:700;font-size:14px}
+.lead .who{font-family:var(--display);font-weight:800;font-size:clamp(28px,5vw,48px);line-height:1.05;margin:6px 0 2px}
+.lead .who small{font-size:.55em;color:var(--gold);margin-left:10px}
+.lead .vs{color:var(--mute);font-weight:600}
+.meter{display:flex;align-items:baseline;gap:10px;margin:18px 0 8px}
+.meter .n{font-family:var(--mono);font-size:56px;font-weight:600;color:var(--gold);line-height:1}
+.meter .of{font-family:var(--mono);color:var(--mute)}
+.track{height:10px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.track i{display:block;height:100%;background:linear-gradient(90deg,var(--orange),var(--gold))}
+.lead p{margin:14px 0 0;max-width:60ch}
+.runners{display:flex;flex-direction:column;gap:12px}
+.run{padding:14px 16px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;align-items:center}
+.run .pos{font-family:var(--display);font-size:22px;color:var(--mute)}
+.run .t{font-weight:700;font-size:19px} .run .t em{font-style:normal;color:var(--mute);font-weight:600;font-size:15px}
+.run .v{font-family:var(--mono);font-size:24px;font-weight:600}
+.run p{grid-column:2/4;margin:0;color:var(--mute);font-size:14px}
+/* tables */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+thead th{position:sticky;top:0;background:var(--panel2);font-weight:700;color:var(--mute);font-size:13px;cursor:default}
+thead th.sort{cursor:pointer} thead th.sort:hover{color:var(--ink)}
+thead tr.grp th{font-family:var(--display);font-size:11px;letter-spacing:.08em;color:var(--ink);border-bottom:2px solid}
+.g-off{border-color:var(--green)!important}.g-def{border-color:var(--orange)!important}.g-pct{border-color:var(--purple)!important}.g-wcs{border-color:var(--gold)!important}.g-line{border-color:var(--cyan)!important}
+td.num{font-family:var(--mono);font-size:13px}
+td.l,th.l{text-align:left}
+td.note{white-space:normal;text-align:left;min-width:280px;max-width:420px;color:var(--mute);font-size:14px}
+tr.high td{background-color:var(--hot)}
+tr.high td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+tr.dim td{opacity:.55}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-weight:700;font-size:12px;letter-spacing:.03em;border:1px solid}
+.t-HIGH{color:var(--gold);border-color:var(--gold)}
+.t-MEDIUM{color:var(--cyan);border-color:var(--cyan)}
+.t-LOW{color:var(--mute);border-color:var(--line)}
+.t-CAUTION{color:var(--orange);border-color:var(--orange);border-style:dashed}
+.t-LOW-SAMPLE,.t-NO-DATA{color:var(--mute);border-color:var(--line);border-style:dotted}
+.st-Confirmed{color:var(--green);border-color:var(--green)}.st-Likely,.st-Expected{color:var(--gold);border-color:var(--gold)}.st-Unconfirmed{color:var(--orange);border-color:var(--orange)}
+.bar-cell{display:flex;align-items:center;gap:8px;min-width:140px}
+.bar-cell i{flex:1;height:8px;border-radius:4px;background:var(--panel2);position:relative;overflow:hidden}
+.bar-cell i b{position:absolute;inset:0 auto 0 0;background:var(--cyan)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-weight:700;font-size:14px;cursor:pointer;color:var(--mute)}
+.chip[aria-pressed="true"]{color:var(--ink);border-color:var(--cyan)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--mute);margin:10px 0 0}
+.sw{display:inline-block;width:28px;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px;background:linear-gradient(90deg,rgba(var(--bad),.6),rgba(var(--mid),.5),rgba(var(--good),.6))}
+/* goalies */
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.gc{padding:16px}
+.gc .top{display:flex;justify-content:space-between;gap:8px;align-items:start}
+.gc h3{margin:0;font-size:21px;font-weight:700}
+.gc .tm{color:var(--mute);font-weight:600;font-size:14px}
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0}
+.pc{border:1px solid var(--line);border-radius:6px;padding:8px 4px;text-align:center}
+.pc .p{font-family:var(--display);font-size:12px;color:var(--mute)}
+.pc .gs{font-family:var(--mono);font-weight:600;font-size:16px}
+.pc .sv{font-family:var(--mono);font-size:12px;color:var(--mute)}
+.pc.weak{outline:2px solid rgb(var(--bad))}.pc.strong{outline:2px solid rgb(var(--good))}
+.gc p{margin:0;font-size:15px}
+.gc .empty{color:var(--mute)}
+/* update */
+.ugrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.ucard{padding:18px}
+.ucard h3{margin:0 0 4px;font-size:19px}
+.ucard p{margin:0 0 10px;color:var(--mute);font-size:15px}
+textarea{width:100%;min-height:150px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:12px;resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.btn{border:1px solid var(--cyan);background:none;color:var(--cyan);border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer}
+.btn.solid{background:var(--cyan);color:var(--bg)}
+.btn.warn{border-color:var(--orange);color:var(--orange)}
+.msg{font-size:14px;color:var(--mute)} .msg.ok{color:var(--green)} .msg.err{color:var(--orange)}
+.sets{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.sets label{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-weight:600;font-size:14px}
+.sets input,.mu select,input[type=date]{width:80px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:3px 6px;font-family:var(--mono);font-size:13px}
+input[type=date]{width:auto}
+.mu{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.mu label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:600}
+.mu select{width:130px;font-family:var(--body)}
+.nm{font-size:12px;color:var(--mute);font-weight:600;white-space:nowrap}
+footer{color:var(--mute);font-size:13px;margin-top:32px;border-top:1px solid var(--line);padding-top:12px}
+[hidden]{display:none!important}
+@media (max-width:820px){.hero,.ugrid{grid-template-columns:1fr}.slate{margin-left:0;width:100%}}
+@media (prefers-reduced-motion:no-preference){.track i{transition:width .6s ease}}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="brand"><b>WCS</b> NHL LINE ZONE<span>5v5 LINE MODEL</span></div>
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" data-v="tonight" aria-selected="true">Tonight</button>
+    <button role="tab" data-v="lines" aria-selected="false">Line stats</button>
+    <button role="tab" data-v="goalies" aria-selected="false">Goalies</button>
+    <button role="tab" data-v="update" aria-selected="false">Update data</button>
+  </nav>
+  <div class="slate" id="slate"></div>
+</div></header>
+<main class="wrap">
+<section id="v-tonight"></section>
+<section id="v-lines" hidden></section>
+<section id="v-goalies" hidden></section>
+<section id="v-update" hidden></section>
+<footer>Line data: <span id="src"></span>. Goalie shot splits: MoneyPuck.com. Scoring Index is a WCS Analytics model — 70% the line's own chance creation ranked against tonight's slate (xGF/60, HDCF/60, SCF/60, CF/60), 30% the opponent's defensive weakness (avg D-Score). Your edits are saved in this browser only.</footer>
+</main>
+<script>
+// ===== WCS model (shared) =====
+const DEFAULT_SETTINGS={wX:.35,wH:.30,wS:.20,wC:.15,own:.70,opp:.30,high:62,med:45,luck:1.0,cautX:.75,cautC:.70,minSOG:100};
+const L=(team,opp,line,toi,cf60,gf60,xgf60,scf60,hdcf60,oscore,ca60,ga60,xga60,sca60,hdca60,dscore,cfp,xgfp)=>({team,opp,line,toi,cf60,gf60,xgf60,scf60,hdcf60,oscore,ca60,ga60,xga60,sca60,hdca60,dscore,cfp,xgfp});
+const G=(team,goalie,status,opp)=>({team,goalie,status,opp,sog:null,minsog:null,LW:[null,null],RW:[null,null],C:[null,null],D:[null,null],OV:[null,null]});
+const WCS_DATA=/*WCS_DATA*/{"date":"2026-10-07","source":"Daily Faceoff DFS Line Stats (entered manually)","lines":[{"team":"Capitals","opp":"Penguins","line":"FL1","toi":16,"cf60":53,"gf60":3.4,"xgf60":2.5,"scf60":28.1,"hdcf60":8.4,"oscore":25,"ca60":57.5,"ga60":3.1,"xga60":2.5,"sca60":24,"hdca60":10.1,"dscore":66.7,"cfp":0.479,"xgfp":0.503},{"team":"Capitals","opp":"Penguins","line":"FL2","toi":14.3,"cf60":64.2,"gf60":3.3,"xgf60":3.3,"scf60":31.4,"hdcf60":14.7,"oscore":75,"ca60":59.5,"ga60":1.9,"xga60":3,"sca60":29.6,"hdca60":14.1,"dscore":29.2,"cfp":0.519,"xgfp":0.526},{"team":"Capitals","opp":"Penguins","line":"FL3","toi":13.5,"cf60":53.8,"gf60":2.7,"xgf60":2.8,"scf60":33.6,"hdcf60":12.1,"oscore":50,"ca60":52.4,"ga60":1.3,"xga60":2.8,"sca60":25.5,"hdca60":13.4,"dscore":70.8,"cfp":0.506,"xgfp":0.501},{"team":"Capitals","opp":"Penguins","line":"FL4","toi":12.3,"cf60":49,"gf60":4.4,"xgf60":2.2,"scf60":22.4,"hdcf60":9.5,"oscore":12.5,"ca60":56.2,"ga60":1.9,"xga60":2.8,"sca60":26.6,"hdca60":13.9,"dscore":41.7,"cfp":0.466,"xgfp":0.433},{"team":"Penguins","opp":"Capitals","line":"FL1","toi":16.1,"cf60":62,"gf60":3.1,"xgf60":3.3,"scf60":31.5,"hdcf60":14.7,"oscore":70.8,"ca60":60.8,"ga60":2.4,"xga60":2.9,"sca60":30.4,"hdca60":13.5,"dscore":25,"cfp":0.505,"xgfp":0.533},{"team":"Penguins","opp":"Capitals","line":"FL2","toi":16.5,"cf60":58.1,"gf60":3.8,"xgf60":3.4,"scf60":34,"hdcf60":16.1,"oscore":79.2,"ca60":61.2,"ga60":2.6,"xga60":3.3,"sca60":30.7,"hdca60":14.7,"dscore":16.7,"cfp":0.487,"xgfp":0.508},{"team":"Penguins","opp":"Capitals","line":"FL3","toi":12.3,"cf60":26.1,"gf60":0,"xgf60":0,"scf60":0,"hdcf60":0,"oscore":37.5,"ca60":52.2,"ga60":0,"xga60":1.1,"sca60":26.1,"hdca60":0,"dscore":58.3,"cfp":0.333,"xgfp":0},{"team":"Penguins","opp":"Capitals","line":"FL4","toi":10.9,"cf60":61.7,"gf60":2.3,"xgf60":2.7,"scf60":29.2,"hdcf60":12.2,"oscore":54.2,"ca60":53.1,"ga60":2,"xga60":2.4,"sca60":23.7,"hdca60":11.1,"dscore":79.2,"cfp":0.538,"xgfp":0.531},{"team":"Ducks","opp":"Oilers","line":"FL1","toi":16,"cf60":71,"gf60":4,"xgf60":3,"scf60":31.3,"hdcf60":11.7,"oscore":62.5,"ca60":56,"ga60":2.9,"xga60":2.8,"sca60":30.6,"hdca60":15.2,"dscore":20.8,"cfp":0.559,"xgfp":0.519},{"team":"Ducks","opp":"Oilers","line":"FL2","toi":16.5,"cf60":59.9,"gf60":2.4,"xgf60":3.1,"scf60":29.8,"hdcf60":14.2,"oscore":58.3,"ca60":53.7,"ga60":1.9,"xga60":2.4,"sca60":24.8,"hdca60":9.9,"dscore":83.3,"cfp":0.528,"xgfp":0.563},{"team":"Ducks","opp":"Oilers","line":"FL3","toi":13.5,"cf60":53.3,"gf60":1.2,"xgf60":2.3,"scf60":23,"hdcf60":9.3,"oscore":20.8,"ca60":55.7,"ga60":1.6,"xga60":2.2,"sca60":27,"hdca60":8.9,"dscore":87.5,"cfp":0.489,"xgfp":0.516},{"team":"Ducks","opp":"Oilers","line":"FL4","toi":10.5,"cf60":52.1,"gf60":1.4,"xgf60":2.3,"scf60":23.2,"hdcf60":11.1,"oscore":16.7,"ca60":55.5,"ga60":2.6,"xga60":2.7,"sca60":26.9,"hdca60":11.1,"dscore":50,"cfp":0.484,"xgfp":0.459},{"team":"Oilers","opp":"Ducks","line":"FL1","toi":17.5,"cf60":74.9,"gf60":7.6,"xgf60":3.1,"scf60":33.7,"hdcf60":13,"oscore":91.7,"ca60":34.8,"ga60":0,"xga60":2.1,"sca60":21.7,"hdca60":8.7,"dscore":100,"cfp":0.683,"xgfp":0.597},{"team":"Oilers","opp":"Ducks","line":"FL2","toi":16.5,"cf60":23.6,"gf60":0,"xgf60":2.8,"scf60":23.6,"hdcf60":14.2,"oscore":37.5,"ca60":42.6,"ga60":0,"xga60":1.8,"sca60":23.6,"hdca60":9.5,"dscore":58.3,"cfp":0.357,"xgfp":0.609},{"team":"Oilers","opp":"Ducks","line":"FL3","toi":13.5,"cf60":58.6,"gf60":4.3,"xgf60":2.7,"scf60":34.3,"hdcf60":15.7,"oscore":83.3,"ca60":48.6,"ga60":1.4,"xga60":1.5,"sca60":20,"hdca60":11.4,"dscore":95.8,"cfp":0.547,"xgfp":0.641},{"team":"Oilers","opp":"Ducks","line":"FL4","toi":10.5,"cf60":56.5,"gf60":2.6,"xgf60":2.8,"scf60":27.1,"hdcf60":11.8,"oscore":29.2,"ca60":55.2,"ga60":2.8,"xga60":2.6,"sca60":27.4,"hdca60":11.1,"dscore":45.8,"cfp":0.506,"xgfp":0.515},{"team":"Jets","opp":"Avalanche","line":"FL1","toi":17.3,"cf60":66.2,"gf60":2.4,"xgf60":3.7,"scf60":30.8,"hdcf60":13,"oscore":66.7,"ca60":72.1,"ga60":3.5,"xga60":3.8,"sca60":35.5,"hdca60":20.1,"dscore":8.3,"cfp":0.479,"xgfp":0.494},{"team":"Jets","opp":"Avalanche","line":"FL2","toi":16.5,"cf60":54.9,"gf60":0,"xgf60":3.3,"scf60":34.6,"hdcf60":10.2,"oscore":45.8,"ca60":61,"ga60":4.1,"xga60":4,"sca60":32.5,"hdca60":22.4,"dscore":12.5,"cfp":0.474,"xgfp":0.448},{"team":"Jets","opp":"Avalanche","line":"FL3","toi":12.8,"cf60":34.8,"gf60":0,"xgf60":1.4,"scf60":13.9,"hdcf60":9.3,"oscore":8.3,"ca60":88.3,"ga60":0,"xga60":5,"sca60":53.4,"hdca60":13.9,"dscore":4.2,"cfp":0.283,"xgfp":0.214},{"team":"Jets","opp":"Avalanche","line":"FL4","toi":10.9,"cf60":115.2,"gf60":0,"xgf60":7.9,"scf60":43.2,"hdcf60":43.2,"oscore":37.5,"ca60":57.6,"ga60":0,"xga60":1.9,"sca60":43.2,"hdca60":28.8,"dscore":58.3,"cfp":0.667,"xgfp":0.806},{"team":"Avalanche","opp":"Jets","line":"FL1","toi":17.1,"cf60":76.2,"gf60":5,"xgf60":3.7,"scf60":41.6,"hdcf60":15.1,"oscore":100,"ca60":60,"ga60":2.1,"xga60":2.8,"sca60":27.8,"hdca60":12.7,"dscore":33.3,"cfp":0.559,"xgfp":0.567},{"team":"Avalanche","opp":"Jets","line":"FL2","toi":15,"cf60":33.8,"gf60":2.1,"xgf60":1.1,"scf60":16.9,"hdcf60":6.3,"oscore":4.2,"ca60":65.5,"ga60":0,"xga60":3.9,"sca60":25.4,"hdca60":12.7,"dscore":37.5,"cfp":0.34,"xgfp":0.216},{"team":"Avalanche","opp":"Jets","line":"FL3","toi":13.5,"cf60":70.1,"gf60":3.3,"xgf60":3.2,"scf60":33.6,"hdcf60":13.4,"oscore":87.5,"ca60":53.8,"ga60":1.9,"xga60":2.5,"sca60":24.7,"hdca60":10.7,"dscore":75,"cfp":0.566,"xgfp":0.564},{"team":"Avalanche","opp":"Jets","line":"FL4","toi":10.5,"cf60":74.2,"gf60":4.5,"xgf60":3.1,"scf60":38.2,"hdcf60":12.4,"oscore":95.8,"ca60":57.3,"ga60":0,"xga60":2.6,"sca60":27,"hdca60":10.1,"dscore":91.7,"cfp":0.564,"xgfp":0.546}],"goalies":[{"team":"Avalanche","goalie":"Mackenzie Blackwood","status":"Likely","opp":"Jets","sog":null,"minsog":null,"LW":[null,null],"RW":[null,null],"C":[null,null],"D":[null,null],"OV":[null,null]},{"team":"Jets","goalie":"Stuart Skinner","status":"Unconfirmed","opp":"Avalanche","sog":null,"minsog":null,"LW":[null,null],"RW":[null,null],"C":[null,null],"D":[null,null],"OV":[null,null]},{"team":"Penguins","goalie":"Arturs Silovs","status":"Confirmed","opp":"Capitals","sog":null,"minsog":null,"LW":[null,null],"RW":[null,null],"C":[null,null],"D":[null,null],"OV":[null,null]},{"team":"Capitals","goalie":"Logan Thompson","status":"Confirmed","opp":"Penguins","sog":null,"minsog":null,"LW":[null,null],"RW":[null,null],"C":[null,null],"D":[null,null],"OV":[null,null]},{"team":"Oilers","goalie":"Devon Levi","status":"Confirmed","opp":"Ducks","sog":null,"minsog":null,"LW":[null,null],"RW":[null,null],"C":[null,null],"D":[null,null],"OV":[null,null]},{"team":"Ducks","goalie":"Lukas Dostal","status":"Confirmed","opp":"Oilers","sog":null,"minsog":null,"LW":[null,null],"RW":[null,null],"C":[null,null],"D":[null,null],"OV":[null,null]}]}/*END_WCS_DATA*/;
+const DEFAULT_LINES=WCS_DATA.lines, DEFAULT_GOALIES=WCS_DATA.goalies;
+
+function prank(arr,x){const n=arr.length;if(n<2)return .5;const less=arr.filter(v=>v<x).length;return Math.floor(less/(n-1)*1000+1e-9)/1000;}
+const r1=v=>Math.round(v*10+1e-7)/10;
+function compute(lines,S){
+  const col=k=>lines.map(l=>l[k]);
+  const cols={cf60:col('cf60'),xgf60:col('xgf60'),scf60:col('scf60'),hdcf60:col('hdcf60')};
+  const oppD=t=>{const a=lines.filter(l=>l.team===t).map(l=>l.dscore);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;};
+  const hd3=[...cols.hdcf60].sort((a,b)=>b-a)[2] ?? -Infinity;
+  const out=lines.map(l=>{
+    const o={...l}; o.oppD=oppD(l.opp);
+    o.low = l.xgf60===0&&l.scf60===0&&l.hdcf60===0;
+    if(o.low){o.index=null;}
+    else{const own=S.wX*prank(cols.xgf60,l.xgf60)+S.wH*prank(cols.hdcf60,l.hdcf60)+S.wS*prank(cols.scf60,l.scf60)+S.wC*prank(cols.cf60,l.cf60);
+      o.index=r1(100*(S.own*own+S.opp*(1-(o.oppD==null?.5:o.oppD/100))));}
+    o.caution=!o.low&&(l.xgfp>=S.cautX||l.xgfp<=1-S.cautX||l.cfp>=S.cautC||l.cfp<=1-S.cautC);
+    o.tier=o.low?"LOW SAMPLE":o.caution?"CAUTION":o.index>=S.high?"HIGH":o.index>=S.med?"MEDIUM":"LOW";
+    o.eligible=!o.low&&!o.caution;
+    let n;
+    if(o.low) n="Not enough data — this combination has barely played together. Ignore tonight.";
+    else{n=(o.caution?"Caution: extreme CF%/xGF% split — likely a tiny sample, numbers unreliable. Left out of Top 3 and team score. ":o.tier[0]+o.tier.slice(1).toLowerCase()+" scoring chance. ")+
+      (l.gf60-l.xgf60>=S.luck?"Finishing above its xG — regression risk. ":l.xgf60-l.gf60>=S.luck?"Creating more than it scores — due for goals. ":"Goals in line with chances. ")+
+      (l.hdcf60>=hd3?"Top-3 high-danger creator on the slate. ":"")+`Faces ${l.opp} (opp avg D-Score ${o.oppD==null?"—":Math.round(o.oppD)}).`;}
+    o.note=n; return o;});
+  const el=out.filter(o=>o.eligible).sort((a,b)=>b.index-a.index);
+  el.forEach((o,i)=>o.rank=i+1);
+  const teams=[...new Set(lines.map(l=>l.team))].map(t=>{
+    const ls=out.filter(o=>o.team===t), e=ls.filter(o=>o.eligible);
+    const toi=e.reduce((s,o)=>s+o.toi,0);
+    const score=toi?r1(e.reduce((s,o)=>s+o.index*o.toi,0)/toi):null;
+    const best=e.slice().sort((a,b)=>b.index-a.index)[0];
+    const opp=ls[0].opp, od=oppD(opp);
+    const tier=score==null?"NO DATA":score>=S.high?"HIGH":score>=S.med?"MEDIUM":"LOW";
+    const outlook=score==null?"No usable data.":tier==="HIGH"?`Strong scoring spot. Lean team total over / stack ${best.line}.`:tier==="MEDIUM"?`Playable — focus on ${best.line}.`:"Tough scoring night.";
+    return {team:t,opp,score,avgO:r1(ls.reduce((s,o)=>s+o.oscore,0)/ls.length),oppD:od==null?null:r1(od),best,tier,outlook};
+  }).sort((a,b)=>(b.score??-1)-(a.score??-1));
+  return {lines:out,top:el.slice(0,3),teams,prank,cols};
+}
+function goalieView(g,S,teams){
+  const pos=["LW","RW","C","D"], gs=pos.map(p=>g[p][1]);
+  if(gs.some(v=>v==null||isNaN(v))) return {weak:null,strong:null,note:"Splits not loaded yet — load the MoneyPuck shot file on the Update data tab (step 4), or this goalie has no history in it."};
+  const mn=Math.min(...gs),mx=Math.max(...gs),weak=pos[gs.indexOf(mn)],strong=pos[gs.indexOf(mx)];
+  const names={LW:"left wingers",RW:"right wingers",C:"centers",D:"defensemen (point shots)"};
+  const best=(teams.find(t=>t.team===g.opp)||{}).best;
+  let note=(g.minsog!=null&&g.minsog<S.minSOG?"Small sample — ":"")+`Weakest vs ${names[weak]} (${mn>0?"+":""}${mn.toFixed(2)} GSAx/100). `;
+  note+= mn<0?`Target: ${g.opp} ${weak==="D"?"D-men shooting from the point":"players at "+weak}${best?` — best ${g.opp} line tonight: ${best.line}`:""}.`:"No real hole — above expected at every position.";
+  return {weak,strong,note};
+}
+// ===== app =====
+const KEY="wcs-nhl-zone-v1";
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let state=load();
+function load(){let saved=null;try{saved=JSON.parse(localStorage.getItem(KEY));}catch(e){}
+  const fresh={date:WCS_DATA.date,lines:structuredClone(DEFAULT_LINES),goalies:structuredClone(DEFAULT_GOALIES),S:{...DEFAULT_SETTINGS,...(saved&&saved.S)}};
+  // newer published data always wins over yesterday's saved edits
+  if(saved&&saved.lines&&saved.date===WCS_DATA.date)return {date:saved.date,lines:saved.lines,goalies:saved.goalies||[],S:fresh.S};
+  return fresh;}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+let R; let lineFilter="All"; let sortKey="index", sortDir=-1;
+const fmtDate=d=>{const t=new Date(d+"T12:00:00");return isNaN(t)?d:t.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});};
+
+function heat(v,arr,goodHigh=true){
+  if(v==null||!arr.length)return "";
+  const t0=prank(arr,v), t=goodHigh?t0:1-t0, a=getComputedStyle(document.documentElement).getPropertyValue("--heatA")||.35;
+  const c=t>=.5?mix([234,179,8],[34,197,94],(t-.5)*2):mix([239,68,68],[234,179,8],t*2);
+  return `background:rgba(${c.join(",")},${a})`;}
+function mix(a,b,t){return a.map((x,i)=>Math.round(x+(b[i]-x)*t));}
+function gsHeat(v){if(v==null)return "";const t=Math.max(-1,Math.min(1,v/3));const c=t>=0?[34,197,94]:[239,68,68];return `background:rgba(${c.join(",")},${(Math.abs(t)*.5).toFixed(2)})`;}
+const tag=t=>`<span class="tag t-${esc(t).replace(/ /g,"-")}">${esc(t)}</span>`;
+
+function render(){
+  document.getElementById("src").textContent=WCS_DATA.source||"Daily Faceoff DFS Line Stats";
+  R=compute(state.lines,state.S);
+  document.getElementById("slate").textContent=fmtDate(state.date)+" · "+state.lines.length+" lines · "+R.teams.length+" teams";
+  renderTonight();renderLines();renderGoalies();renderUpdate();
+}
+
+function renderTonight(){
+  const el=document.getElementById("v-tonight");
+  if(!R.top.length){el.innerHTML=`<h2>Tonight</h2><p class="sub">No lines loaded yet. Paste tonight's Daily Faceoff Line Stats on the Update data tab.</p>`;return;}
+  const [a,...rest]=R.top;
+  el.innerHTML=`<div class="hero">
+   <article class="panel lead" aria-label="Most likely line to score">
+    <div class="k">Most likely line to score tonight</div>
+    <div class="who">${esc(a.team)} <small>${esc(a.line)}</small></div>
+    ${a.names?`<div class="vs">${esc(a.names)}</div>`:""}<div class="vs">vs ${esc(a.opp)} · ${a.toi.toFixed(1)} min TOI</div>
+    <div class="meter"><span class="n">${a.index.toFixed(1)}</span><span class="of">/ 100 scoring index</span></div>
+    <div class="track"><i style="width:${a.index}%"></i></div>
+    <p>${esc(a.note)}</p>
+   </article>
+   <div class="runners">${rest.map((o,i)=>`<article class="panel run"><span class="pos">${i+2}</span>
+     <span class="t">${esc(o.team)} ${esc(o.line)} <em>vs ${esc(o.opp)}</em></span><span class="v">${o.index.toFixed(1)}</span><p>${esc(o.note)}</p></article>`).join("")}</div>
+  </div>
+  <h2>Team scoring outlook</h2>
+  <p class="sub">TOI-weighted Scoring Index of each team's usable lines. Opponent D-Score: lower means a weaker defence and an easier matchup.</p>
+  <div class="scroll"><table><thead><tr><th>#</th><th class="l">Team</th><th class="l">Opponent</th><th>Scoring chance</th><th>Tier</th><th>Avg O-Score</th><th>Opp avg D-Score</th><th>Best line</th><th class="l">Outlook</th></tr></thead><tbody>
+  ${R.teams.map((t,i)=>`<tr class="${t.tier==="HIGH"?"high":""}"><td class="num">${i+1}</td><td class="l"><b>${esc(t.team)}</b></td><td class="l">${esc(t.opp)}</td>
+   <td><div class="bar-cell"><i><b style="width:${t.score??0}%"></b></i><span class="num">${t.score==null?"—":t.score.toFixed(1)}</span></div></td>
+   <td>${tag(t.tier)}</td><td class="num" style="${heat(t.avgO,R.teams.map(x=>x.avgO))}">${t.avgO.toFixed(1)}</td>
+   <td class="num" style="${heat(t.oppD,R.teams.map(x=>x.oppD).filter(v=>v!=null),false)}">${t.oppD==null?"—":t.oppD.toFixed(1)}</td>
+   <td><b>${t.best?esc(t.best.line):"—"}</b>${t.best?` <span class="num" style="color:var(--mute)">${t.best.index.toFixed(1)}</span>`:""}</td><td class="note">${esc(t.outlook)}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="legend"><span><span class="sw"></span>Red = bad, green = good (relative to tonight's slate)</span><span>${tag("HIGH")} highlighted rows = strong scoring spot</span><span>${tag("CAUTION")} tiny sample, excluded</span></div>`;
+}
+
+const LCOLS=[["toi","TOI",1],["cf60","CF/60",1],["gf60","GF/60",1],["xgf60","xGF/60",1],["scf60","SCF/60",1],["hdcf60","HDCF/60",1],["oscore","O-Score",1],
+ ["ca60","CA/60",0],["ga60","GA/60",0],["xga60","xGA/60",0],["sca60","SCA/60",0],["hdca60","HDCA/60",0],["dscore","D-Score",1],["cfp","CF%",1],["xgfp","xGF%",1]];
+const TIPS={cf60:"Shot attempts for per 60",gf60:"Goals for per 60",xgf60:"Expected goals for per 60",scf60:"Scoring chances for per 60",hdcf60:"High-danger chances for per 60",oscore:"Daily Faceoff offence score, relative to tonight's slate",
+ ca60:"Shot attempts against per 60",ga60:"Goals against per 60",xga60:"Expected goals against per 60",sca60:"Scoring chances against per 60",hdca60:"High-danger chances against per 60",dscore:"Daily Faceoff defence score, relative to tonight's slate",
+ cfp:"Share of shot attempts",xgfp:"Share of expected goals",index:"WCS Scoring Index, 0–100",toi:"Average 5v5 ice time per game"};
+function renderLines(){
+  const el=document.getElementById("v-lines");
+  const teams=["All",...R.teams.map(t=>t.team)];
+  let rows=R.lines.filter(o=>lineFilter==="All"||o.team===lineFilter);
+  rows=rows.slice().sort((a,b)=>{const x=a[sortKey],y=b[sortKey];if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return typeof x==="string"?sortDir*x.localeCompare(y):sortDir*(x-y);});
+  const all=k=>R.lines.map(o=>o[k]);
+  const th=(k,lab)=>`<th class="sort" data-k="${k}" title="${esc(TIPS[k]||"Sort")}" aria-sort="${sortKey===k?(sortDir>0?"ascending":"descending"):"none"}">${lab}${sortKey===k?(sortDir>0?" ▲":" ▼"):""}</th>`;
+  el.innerHTML=`<h2>Line stats</h2><p class="sub">Every forward line on tonight's slate. Click a column to sort. Gold rows have a HIGH scoring chance.</p>
+  <div class="filters" role="group" aria-label="Filter by team">${teams.map(t=>`<button class="chip" data-team="${esc(t)}" aria-pressed="${t===lineFilter}">${esc(t)}</button>`).join("")}</div>
+  <div class="scroll"><table><thead>
+   <tr class="grp"><th colspan="3" class="g-line">LINE</th><th colspan="7" class="g-off">OFFENCE</th><th colspan="6" class="g-def">DEFENCE</th><th colspan="2" class="g-pct">SHARE</th><th colspan="4" class="g-wcs">WCS MODEL</th></tr>
+   <tr>${th("team","Team").replace('class="sort"','class="sort l"')}<th>Opp</th>${th("line","Line")}${LCOLS.map(([k,l])=>th(k,l)).join("")}${th("index","Index")}<th>Tier</th>${th("rank","Rank")}<th class="l">Analysis</th></tr></thead><tbody>
+  ${rows.map(o=>`<tr class="${o.tier==="HIGH"?"high":""} ${o.low?"dim":""}"><td class="l"><b>${esc(o.team)}</b></td><td>${esc(o.opp)}</td><td><b>${esc(o.line)}</b>${o.names?`<div class="nm">${esc(o.names)}</div>`:""}</td>
+   ${LCOLS.map(([k,,gh])=>{const v=o[k];const pct=k==="cfp"||k==="xgfp";return `<td class="num" style="${heat(v,all(k),!!gh)}">${pct?(v*100).toFixed(1)+"%":v.toFixed(1)}</td>`}).join("")}
+   <td class="num" style="${heat(o.index,all("index").filter(v=>v!=null))};font-weight:600">${o.index==null?"—":o.index.toFixed(1)}</td><td>${tag(o.tier)}</td><td class="num">${o.rank??"—"}</td><td class="note">${esc(o.note)}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="legend"><span><span class="sw"></span>Green = good. For "against" stats, lower is greener.</span></div>`;
+  el.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{lineFilter=b.dataset.team;renderLines();});
+  el.querySelectorAll("th.sort").forEach(h=>h.onclick=()=>{const k=h.dataset.k;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=(k==="team"||k==="line"||k==="rank")?1:-1;}renderLines();});
+}
+
+function renderGoalies(){
+  const el=document.getElementById("v-goalies"), S=state.S;
+  el.innerHTML=`<h2>Starting goalies</h2><p class="sub">Weakness by shooter position. GSAx/100 = goals saved above expected per 100 unblocked shots: positive is better than expected, negative is a hole to target. Red outline = weakest position, green = strongest.</p>
+  ${state.goalies.length?`<div class="gcards">${state.goalies.map(g=>{const v=goalieView(g,S,R.teams);
+    return `<article class="panel gc"><div class="top"><div><h3>${esc(g.goalie)}</h3><div class="tm">${esc(g.team)} vs ${esc(g.opp)}</div></div><span class="tag st-${esc(g.status)}">${esc(g.status)}</span></div>
+    <div class="pgrid">${["LW","RW","C","D"].map(p=>{const [sv,gs]=g[p];return `<div class="pc ${v.weak===p?"weak":""} ${v.strong===p?"strong":""}" style="${gsHeat(gs)}"><div class="p">${p}</div><div class="gs">${gs==null?"—":(gs>0?"+":"")+gs.toFixed(2)}</div><div class="sv">${sv==null?"Sv% —":"."+String(Math.round(sv*1000)).padStart(3,"0")}</div></div>`}).join("")}</div>
+    <p class="${v.weak?"":"empty"}">${esc(v.note)}</p>
+    ${g.sog!=null?`<div class="legend"><span>Shots on goal in sample: <b class="num">${g.sog}</b></span><span>Overall: <b class="num">${g.OV[0]!=null?"."+String(Math.round(g.OV[0]*1000)).padStart(3,"0"):"—"}</b> / <b class="num">${g.OV[1]!=null?(g.OV[1]>0?"+":"")+g.OV[1].toFixed(2):"—"}</b></span></div>`:""}
+    </article>`}).join("")}</div>`:`<p class="sub">No starters loaded. Add them on the Update data tab.</p>`}
+  <div class="legend"><span>Starters: Daily Faceoff. Splits: MoneyPuck.com shot data (2025-26 + 2026-27 regular season).</span></div>`;
+}
+
+const SET_LABELS=[["wX","Weight: xGF/60"],["wH","Weight: HDCF/60"],["wS","Weight: SCF/60"],["wC","Weight: CF/60"],["own","Share: line's own offence"],["opp","Share: opponent weakness"],
+ ["high","HIGH cutoff"],["med","MEDIUM cutoff"],["luck","Luck flag (GF vs xGF gap)"],["cautX","Caution: xGF% extreme"],["cautC","Caution: CF% extreme"],["minSOG","Goalie min SOG per position"]];
+function renderUpdate(){
+  const el=document.getElementById("v-update");
+  if(el.dataset.ready){syncMatchups();return;}
+  el.dataset.ready=1;
+  el.innerHTML=`<h2>Update data</h2><p class="sub">Each day after Daily Faceoff posts its charts (around 3 PM ET), copy the Line Stats table and paste it below. Everything recalculates instantly and is saved in this browser.</p>
+  <div class="ugrid">
+   <div class="panel ucard"><h3>1. Slate date</h3><p>The date of tonight's games.</p><input type="date" id="u-date" value="${esc(state.date)}"></div>
+   <div class="panel ucard"><h3>Matchups</h3><p>Opponents are paired in the order teams appear (1st vs 2nd, 3rd vs 4th…). Fix any here.</p><div class="mu" id="u-mu"></div></div>
+   <div class="panel ucard"><h3>2. Line stats</h3><p>Paste rows copied from Daily Faceoff: team, line (FL1–FL4), then the 15 numbers TOI through xGF%. Headers and blank rows are skipped.</p>
+    <textarea id="u-lines" placeholder="Capitals  FL1  16.0  53.0  3.4  2.5  28.1  8.4  25.0  57.5  3.1  2.5  24.0  10.1  66.7  47.9%  50.3%"></textarea>
+    <div class="row"><button class="btn solid" id="u-replace">Replace all lines</button><button class="btn" id="u-add">Add to slate</button><span class="msg" id="u-lmsg"></span></div></div>
+   <div class="panel ucard"><h3>3. Starting goalies</h3><p>Paste rows from the spreadsheet's Goalies tab (tab- or comma-separated): Team, Goalie, Status, Opponent, then optionally Total SOG, Fewest SOG, and Sv% / GSAx for LW, RW, C, D and Overall.</p>
+    <textarea id="u-goalies" placeholder="Avalanche&#9;Mackenzie Blackwood&#9;Likely&#9;Jets&#9;1650&#9;310&#9;0.905&#9;0.42&#9;..."></textarea>
+    <div class="row"><button class="btn solid" id="u-greplace">Replace goalies</button><span class="msg" id="u-gmsg"></span></div></div>
+   <div class="panel ucard" style="grid-column:1/-1"><h3>4. Goalie weakness splits (no Python needed)</h3>
+    <p>Download the shot data file from MoneyPuck.com (Data page, "Shot Data", current season: shots_2025.zip — add shots_2026.zip once it's posted), then choose it here. The file stays on your computer; this page reads it and fills in LW / RW / C / D splits for tonight's starters. Re-run any time the starters change.</p>
+    <div class="row"><input type="file" id="u-mp" accept=".zip,.csv" multiple><span class="msg" id="u-mpmsg">No file loaded yet.</span></div></div>
+  </div>
+  <h2>Model settings</h2><p class="sub">Offence weights should add to 1.00, and so should the two shares.</p>
+  <div class="panel ucard"><div class="sets">${SET_LABELS.map(([k,l])=>`<label>${l}<input type="number" step="any" data-s="${k}" value="${state.S[k]}"></label>`).join("")}</div>
+   <div class="row"><button class="btn" id="u-sdef">Restore default settings</button><button class="btn warn" id="u-reset">Reset to latest published data</button><span class="msg" id="u-smsg"></span></div></div>`;
+  const $=id=>document.getElementById(id);
+  $("u-date").onchange=e=>{state.date=e.target.value;save();render();};
+  const doLines=replace=>{const {rows,skipped}=parseLines($("u-lines").value);const m=$("u-lmsg");
+    if(!rows.length){m.className="msg err";m.textContent="No line rows found. Each row needs a team, a line like FL1, and 15 numbers.";return;}
+    state.lines=replace?rows:[...state.lines.filter(l=>!rows.some(r=>r.team===l.team)),...rows];pairOpps();save();render();
+    m.className="msg ok";m.textContent=`Loaded ${rows.length} lines${skipped?`, skipped ${skipped} rows`:""}.`;};
+  $("u-replace").onclick=()=>doLines(true);$("u-add").onclick=()=>doLines(false);
+  $("u-greplace").onclick=()=>{const rows=parseGoalies($("u-goalies").value),m=$("u-gmsg");
+    if(!rows.length){m.className="msg err";m.textContent="No goalie rows found. Separate columns with tabs.";return;}
+    state.goalies=rows;if(lastAgg)applyAgg(lastAgg);save();render();m.className="msg ok";m.textContent=`Loaded ${rows.length} goalies.`;};
+  $("u-mp").onchange=e=>loadMP(e.target.files);
+  el.querySelectorAll("[data-s]").forEach(i=>i.onchange=()=>{const v=parseFloat(i.value);if(!isNaN(v)){state.S[i.dataset.s]=v;save();render();}
+    const s=state.S,m=$("u-smsg");const w=+(s.wX+s.wH+s.wS+s.wC).toFixed(2),sh=+(s.own+s.opp).toFixed(2);
+    m.className="msg "+(w===1&&sh===1?"ok":"err");m.textContent=w===1&&sh===1?"Settings saved.":`Check totals: weights ${w}, shares ${sh}.`;});
+  $("u-sdef").onclick=()=>{state.S={...DEFAULT_SETTINGS};save();el.querySelectorAll("[data-s]").forEach(i=>i.value=state.S[i.dataset.s]);render();};
+  $("u-reset").onclick=()=>{if(!confirm("Discard your edits and reload the latest published data?"))return;
+    try{localStorage.removeItem(KEY);}catch(e){} state=load();delete el.dataset.ready;render();};
+  syncMatchups();
+}
+function syncMatchups(){
+  const box=document.getElementById("u-mu");if(!box)return;
+  const teams=[...new Set(state.lines.map(l=>l.team))];
+  box.innerHTML=teams.map(t=>{const cur=(state.lines.find(l=>l.team===t)||{}).opp;
+    return `<label>${esc(t)}<select data-t="${esc(t)}">${teams.filter(x=>x!==t).map(x=>`<option ${x===cur?"selected":""}>${esc(x)}</option>`).join("")}${teams.includes(cur)?"":`<option selected>${esc(cur||"")}</option>`}</select></label>`}).join("")||`<p>No teams yet.</p>`;
+  box.querySelectorAll("select").forEach(s=>s.onchange=()=>{const t=s.dataset.t,o=s.value;
+    state.lines.forEach(l=>{if(l.team===t)l.opp=o;if(l.team===o)l.opp=t;});save();render();});
+}
+function pairOpps(){const teams=[...new Set(state.lines.map(l=>l.team))];
+  for(let i=0;i<teams.length;i+=2){const a=teams[i],b=teams[i+1];if(!b)continue;state.lines.forEach(l=>{if(l.team===a)l.opp=b;if(l.team===b)l.opp=a;});}}
+function parseLines(txt){
+  const rows=[];let skipped=0;
+  txt.split(/\r?\n/).forEach(raw=>{const line=raw.trim();if(!line)return;
+    const tk=line.split(/\s+/);const i=tk.findIndex(x=>/^FL[1-4]$/i.test(x));
+    if(i<1){skipped++;return;}
+    const nums=tk.slice(i+1).map(x=>x.replace(/[%,]/g,"")).filter(x=>x!=="").map(Number);
+    if(nums.length<15||nums.slice(0,15).some(isNaN)){skipped++;return;}
+    const n=nums.slice(0,15);const pct=v=>v>1?v/100:v;
+    rows.push(L(tk.slice(0,i).join(" "),"",tk[i].toUpperCase(),...n.slice(0,13),pct(n[13]),pct(n[14])));});
+  return {rows,skipped};
+}
+function parseGoalies(txt){
+  return txt.split(/\r?\n/).map(r=>r.split(r.includes("\t")?"\t":",").map(x=>x.trim())).filter(c=>c.length>=4&&c[0]&&c[1]&&!/^team$/i.test(c[0])).map(c=>{
+    const g=G(c[0],c[1],c[2]||"Unconfirmed",c[3]);const n=i=>{const v=parseFloat((c[i]||"").replace(/[%+]/g,""));return isNaN(v)?null:v;};
+    g.sog=n(4);g.minsog=n(5);[["LW",6],["RW",8],["C",10],["D",12],["OV",14]].forEach(([p,i])=>{let sv=n(i);if(sv!=null&&sv>1)sv/=100;g[p]=[sv,n(i+1)];});return g;});
+}
+let lastAgg=null;
+const normName=s=>String(s||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z]/g,"");
+function applyAgg(agg){let hit=0;const f=t=>[t[1]?+(1-t[2]/t[1]).toFixed(3):null,t[0]?+((t[3]-t[2])/t[0]*100).toFixed(2):null];
+  state.goalies.forEach(g=>{const a=agg[normName(g.goalie)];if(!a)return;hit++;
+    ["LW","RW","C","D","OV"].forEach(p=>g[p]=f(a[p]));g.sog=a.OV[1];g.minsog=Math.min(...["LW","RW","C","D"].map(p=>a[p][1]));});return hit;}
+async function loadMP(files){
+  const m=document.getElementById("u-mpmsg");m.className="msg";
+  if(typeof Papa==="undefined"||typeof JSZip==="undefined"){m.className="msg err";m.textContent="The file reader didn't load. Check your connection and reload the page.";return;}
+  const agg={},pos={L:"LW",R:"RW",C:"C",D:"D"};let rows=0,cols=null;
+  const parse=src=>new Promise((res,rej)=>Papa.parse(src,{header:true,skipEmptyLines:true,chunkSize:4194304,
+    chunk:r=>{if(!cols){cols=r.meta.fields||[];const need=["goalieNameForShot","playerPositionThatDidEvent","xGoal","goal","shotWasOnGoal"].filter(c=>!cols.includes(c));if(need.length)return rej(new Error("missing columns: "+need.join(", ")));}
+      for(const d of r.data){if(d.isPlayoffGame==="1")continue;const k=normName(d.goalieNameForShot);if(!k)continue;
+        const a=agg[k]||(agg[k]={LW:[0,0,0,0],RW:[0,0,0,0],C:[0,0,0,0],D:[0,0,0,0],OV:[0,0,0,0]});
+        const s=+d.shotWasOnGoal||0,g=+d.goal||0,x=+d.xGoal||0,p=pos[d.playerPositionThatDidEvent];
+        for(const t of p?[a[p],a.OV]:[a.OV]){t[0]++;t[1]+=s;t[2]+=g;t[3]+=x;}rows++;}
+      m.textContent="Reading… "+rows.toLocaleString()+" shots";},complete:res,error:rej}));
+  try{for(const f of files){cols=null;
+      if(/\.zip$/i.test(f.name)){const z=await JSZip.loadAsync(f);const e=Object.values(z.files).find(x=>/\.csv$/i.test(x.name));if(!e)throw new Error(f.name+" has no CSV inside");m.textContent="Unzipping "+f.name+"…";await parse(await e.async("blob"));}
+      else await parse(f);}
+    if(!rows)throw new Error("no shots found — use MoneyPuck's shot data file");
+    lastAgg=agg;const hit=applyAgg(agg);save();render();
+    m.className="msg ok";m.textContent="Read "+rows.toLocaleString()+" shots. Splits loaded for "+hit+" of "+state.goalies.length+" starters.";
+  }catch(err){m.className="msg err";m.textContent="Couldn't read that file: "+err.message;}
+}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
+  document.querySelectorAll("main>section").forEach(s=>s.hidden=s.id!=="v-"+b.dataset.v);window.scrollTo(0,0);});
+render();
+</script></body></html>
